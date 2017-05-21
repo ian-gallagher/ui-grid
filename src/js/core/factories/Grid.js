@@ -281,6 +281,16 @@ angular.module('ui.grid')
     self.api.registerMethod( 'core', 'addRowHeaderColumn', this.addRowHeaderColumn );
 
     /**
+     * @ngdoc method
+     * @methodOf  ui.grid.class:Grid
+     * @name incrementallyScrollY
+     * @description Scrolls the grid according to number of pixels provided.
+     * @param {number} pixelsToScroll positive or negative value of pixels to scroll
+     * @returns {promise} a promise that is resolved when scrolling is complete
+     */
+    self.api.registerMethod( 'core', 'incrementallyScrollY', function(pixelsToScroll) { return self.incrementallyScrollY(pixelsToScroll);} );
+
+	  /**
      * @ngdoc function
      * @name scrollToIfNecessary
      * @methodOf ui.grid.core.api:PublicApi
@@ -2316,6 +2326,54 @@ angular.module('ui.grid')
      */
     Grid.prototype.hasRightContainerColumns = function () {
       return this.hasRightContainer() && this.renderContainers.right.renderedColumns.length > 0;
+    };
+
+    /**
+     * @ngdoc method
+     * @methodOf  ui.grid.class:Grid
+     * @name incrementallyScrollY
+     * @description Scrolls the grid according to number of pixels provided.
+     * @param {number} pixelsToScroll positive or negative value of pixels to scroll
+     * @returns {promise} a promise that is resolved when scrolling is complete
+     */
+    Grid.prototype.incrementallyScrollY = function (pixelsToScroll) {
+      var self = this;
+
+      var scrollEvent = new ScrollEvent(self, 'uiGrid.scrollToIfNecessary');
+
+      // The top boundary is the current Y scroll position
+      var currentScrollY = self.renderContainers.body.prevScrollTop;
+
+      // Don't the let top boundary be less than 0
+      currentScrollY = (currentScrollY < 0) ? 0 : currentScrollY;
+
+      // Total vertical scroll length of the grid
+      var scrollLength = (self.renderContainers.body.getCanvasHeight() - self.renderContainers.body.getViewportHeight());
+
+      var scrollPixels, percentage;
+
+      scrollPixels = currentScrollY + pixelsToScroll;
+
+      // Don't let the pixels to scroll be less than zero
+      scrollPixels = (scrollPixels < 0) ? 0 : scrollPixels;
+
+      // amount of pixels to scroll should not exceed total possible scroll length
+      scrollPixels = (scrollPixels > scrollLength) ? scrollLength : scrollPixels;
+
+      percentage = scrollPixels / scrollLength;
+      scrollEvent.y = { percentage: percentage  };
+
+      var deferred = $q.defer();
+
+      scrollEvent.withDelay = false;
+      self.scrollContainers('',scrollEvent);
+
+      var dereg = self.api.core.on.scrollEnd(null,function() {
+        deferred.resolve(scrollEvent);
+        dereg();
+      });
+
+      return deferred.promise;
     };
 
     /**
